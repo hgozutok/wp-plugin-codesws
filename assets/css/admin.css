@@ -1,0 +1,629 @@
+/**
+ * CodesWholesale Sync Admin Styles
+ */
+
+/* General Admin Styles */
+.cws-admin-page {
+    max-width: 1400px;
+}
+
+.cws-admin-page .wp-heading-inline {
+    margin-bottom: 1rem;
+}
+
+/* Badge Styles */
+.cws-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 12px;
+    margin-left: 8px;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+.cws-badge-success {
+    background: #46b450;
+    color: white;
+}
+
+.cws-badge-warning {
+    background: #ffb900;
+    color: white;
+}
+
+.cws-badge-error {
+    background: #dc3232;
+    color: white;
+}
+
+/* Dashboard Grid Layout */
+.cws-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+/* Card Styles */
+.cws-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.cws-card-full-width {
+    grid-column: 1 / -1;
+}
+
+.cws-card-header {
+    background: #f6f7f7;
+    border-bottom: 1px solid #c3c4c7;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cws-card-header h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.cws-card-body {
+    padding: 20px;
+}
+
+/* Account Information */
+.cws-account-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cws-account-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.cws-account-field:last-child {
+    border-bottom: none;
+}
+
+.cws-account-field label {
+    font-weight: 600;
+    color: #646970;
+    margin: 0;
+}
+
+.cws-balance,
+.cws-credit {
+    font-weight: 600;
+    color: #135e96;
+}
+
+/* Statistics Grid */
+.cws-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.cws-stat-item {
+    text-align: center;
+    padding: 15px;
+    background: #f6f7f7;
+    border-radius: 4px;
+}
+
+.cws-stat-number {
+    font-size: 32px;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.2;
+    margin-bottom: 5px;
+}
+
+.cws-stat-number.cws-stat-error {
+    color: #dc3232;
+}
+
+.cws-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #646970;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cws-stat-value {
+    font-size: 14px;
+    color: #1d2327;
+    margin-top: 4px;
+}
+
+/* Quick Actions */
+.cws-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.cws-quick-actions .button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    height: auto;
+    white-space: normal;
+    text-align: center;
+    font-weight: 600;
+}
+
+.cws-quick-actions .button .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Recent Logs */
+.cws-recent-logs table {
+    margin-top: 0;
+}
+
+.cws-operation-type {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.cws-operation-import {
+    background: #e8f4fd;
+    color: #135e96;
+}
+
+.cws-operation-price-update {
+    background: #fff8e1;
+    color: #8a6914;
+}
+
+.cws-operation-stock-update {
+    background: #f0f6ff;
+    color: #3c434a;
+}
+
+.cws-operation-webhook {
+    background: #f7fcff;
+    color: #0073aa;
+}
+
+.cws-operation-order {
+    background: #f0fff4;
+    color: #0d5a1a;
+}
+
+.cws-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.cws-status-success {
+    background: #00a32a;
+    color: white;
+}
+
+.cws-status-error {
+    background: #dc3232;
+    color: white;
+}
+
+.cws-status-warning {
+    background: #ffb900;
+    color: white;
+}
+
+.cws-no-logs {
+    text-align: center;
+    padding: 40px 20px;
+    color: #646970;
+}
+
+/* System Status */
+.cws-system-status {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cws-status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.cws-status-item:last-child {
+    border-bottom: none;
+}
+
+.cws-status-label {
+    font-weight: 600;
+    color: #646970;
+}
+
+.cws-status-value {
+    color: #1d2327;
+}
+
+.cws-status-enabled {
+    color: #00a32a;
+    font-weight: 600;
+}
+
+.cws-status-disabled {
+    color: #dc3232;
+    font-weight: 600;
+}
+
+/* Setup Steps */
+.cws-dashboard-actions {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #c3c4c7;
+}
+
+.cws-setup-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.cws-step {
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    transition: all 0.3s ease;
+}
+
+.cws-step-completed {
+    border-color: #00a32a;
+    background: #f6ffed;
+}
+
+.cws-step-pending {
+    border-color: #ddd;
+}
+
+.cws-step-number {
+    background: #e0e0e0;
+    color: #666;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.cws-step-completed .cws-step-number {
+    background: #00a32a;
+    color: white;
+}
+
+.cws-step-content h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #1d2327;
+}
+
+.cws-step-content p {
+    margin: 0 0 12px 0;
+    color: #646970;
+    font-size: 14px;
+}
+
+/* Settings Page */
+.cws-settings-form {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+.cws-settings-section {
+    border-bottom: 1px solid #c3c4c7;
+}
+
+.cws-settings-section:last-child {
+    border-bottom: none;
+}
+
+.cws-settings-section-header {
+    background: #f6f7f7;
+    padding: 20px;
+    border-bottom: 1px solid #c3c4c7;
+}
+
+.cws-settings-section-header h2 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+    color: #1d2327;
+}
+
+.cws-settings-section-header p {
+    margin: 0;
+    color: #646970;
+    font-size: 14px;
+}
+
+.cws-settings-section-body {
+    padding: 20px;
+}
+
+.cws-setting-field {
+    margin-bottom: 20px;
+}
+
+.cws-setting-field:last-child {
+    margin-bottom: 0;
+}
+
+.cws-setting-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #1d2327;
+}
+
+.cws-setting-field input,
+.cws-setting-field select,
+.cws-setting-field textarea {
+    width: 100%;
+    max-width: 400px;
+}
+
+.cws-setting-field input[type="checkbox"] {
+    width: auto;
+    margin-right: 8px;
+}
+
+.cws-setting-description {
+    font-size: 13px;
+    color: #646970;
+    margin-top: 5px;
+}
+
+.cws-test-connection {
+    margin-top: 15px;
+}
+
+.cws-connection-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+}
+
+.cws-connection-success {
+    background: #d1edff;
+    border: 1px solid #0073aa;
+    color: #0073aa;
+}
+
+.cws-connection-error {
+    background: #fbeaea;
+    border: 1px solid #dc3232;
+    color: #dc3232;
+}
+
+/* Import Page */
+.cws-import-form {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.cws-import-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.cws-import-progress {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 20px;
+    display: none;
+}
+
+.cws-progress-bar {
+    background: #e0e0e0;
+    border-radius: 10px;
+    height: 20px;
+    margin: 10px 0;
+    overflow: hidden;
+}
+
+.cws-progress-fill {
+    background: #0073aa;
+    height: 100%;
+    width: 0;
+    transition: width 0.3s ease;
+}
+
+.cws-import-results {
+    margin-top: 20px;
+}
+
+/* Product Mapping */
+.cws-mapping-table {
+    margin-top: 20px;
+}
+
+.cws-mapping-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.cws-mapping-synced {
+    background: #00a32a;
+    color: white;
+}
+
+.cws-mapping-pending {
+    background: #ffb900;
+    color: white;
+}
+
+.cws-mapping-error {
+    background: #dc3232;
+    color: white;
+}
+
+/* Logs Page */
+.cws-logs-filters {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.cws-logs-table {
+    margin-top: 20px;
+}
+
+.cws-log-details {
+    display: none;
+    background: #f9f9f9;
+    padding: 15px;
+    border-left: 4px solid #0073aa;
+    margin-top: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 782px) {
+    .cws-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .cws-quick-actions {
+        grid-template-columns: 1fr;
+    }
+    
+    .cws-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .cws-setup-steps {
+        grid-template-columns: 1fr;
+    }
+    
+    .cws-import-filters {
+        grid-template-columns: 1fr;
+    }
+    
+    .cws-logs-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .cws-account-field,
+    .cws-status-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+
+/* Loading States */
+.cws-loading {
+    position: relative;
+}
+
+.cws-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner.is-active {
+    float: none;
+    margin: 0;
+}
+
+/* Utility Classes */
+.cws-text-center {
+    text-align: center;
+}
+
+.cws-text-success {
+    color: #00a32a;
+}
+
+.cws-text-error {
+    color: #dc3232;
+}
+
+.cws-text-warning {
+    color: #ffb900;
+}
+
+.cws-mb-0 {
+    margin-bottom: 0 !important;
+}
+
+.cws-mt-20 {
+    margin-top: 20px;
+}
+
+.cws-hidden {
+    display: none;
+} 
