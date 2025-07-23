@@ -14,75 +14,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Check if CodesWholesale SDK is available
-if (!class_exists('CodesWholesale\CodesWholesale')) {
-    // Provide a stub class if SDK is not available
-    class CWS_API_Client {
-        private static $instance = null;
-        
-        public static function get_instance() {
-            if (null === self::$instance) {
-                self::$instance = new self();
-            }
-            return self::$instance;
-        }
-        
-        public function __construct() {
-            // SDK not available
-        }
-        
-        public function get_client() {
-            return null;
-        }
-        
-        public function is_connected() {
-            return false;
-        }
-        
-        public function test_connection() {
-            return array('status' => 'error', 'message' => 'CodesWholesale SDK not installed. Please run "composer install".');
-        }
-        
-        public function refresh_settings() {
-            // No-op
-        }
-        
-        public function get_platforms() {
-            return array();
-        }
-        
-        public function get_regions() {
-            return array();
-        }
-        
-        public function get_languages() {
-            return array();
-        }
-        
-        public function get_account_balance() {
-            return null;
-        }
-    }
-    return;
-}
-
-// Import CodesWholesale classes (only if SDK is available)
-use CodesWholesale\CodesWholesale;
-use CodesWholesale\Client\ClientBuilder;
-use CodesWholesale\Storage\TokenStorageInterface;
-use CodesWholesale\Resource\Account;
-use CodesWholesale\Resource\Product;
-use CodesWholesale\Resource\Platform;
-use CodesWholesale\Resource\Region;
-use CodesWholesale\Resource\Language;
-use CodesWholesale\Resource\Invoice;
-use CodesWholesale\Resource\Security;
-use CodesWholesale\Util\Base64Writer;
-
 /**
  * Custom database token storage for WordPress
  */
-class CWS_Database_Token_Storage implements TokenStorageInterface {
+class CWS_Database_Token_Storage {
     
     private $option_name = 'cws_api_token';
     
@@ -100,36 +35,35 @@ class CWS_Database_Token_Storage implements TokenStorageInterface {
 }
 
 /**
- * CodesWholesale API Client Class
+ * CodesWholesale API Client
+ * 
+ * Handles communication with CodesWholesale API using the official PHP SDK.
+ * Provides graceful fallback when SDK is not available.
  */
 class CWS_API_Client {
     
     /**
-     * Instance
-     * @var CWS_API_Client
+     * Singleton instance
      */
     private static $instance = null;
     
     /**
-     * CodesWholesale Client
-     * @var \CodesWholesale\Client
+     * CodesWholesale client instance
      */
     private $client = null;
     
     /**
-     * Settings
-     * @var array
+     * Whether the SDK is available
      */
-    private $settings = array();
+    private $sdk_available = false;
     
     /**
-     * Logger
-     * @var \Monolog\Logger
+     * Settings instance
      */
-    private $logger;
+    private $settings = null;
     
     /**
-     * Get instance
+     * Get singleton instance
      */
     public static function get_instance() {
         if (null === self::$instance) {
@@ -142,35 +76,11 @@ class CWS_API_Client {
      * Constructor
      */
     public function __construct() {
-        $this->init_logger();
-        $this->load_settings();
-        $this->init_client();
-    }
-    
-    /**
-     * Initialize logger
-     */
-    private function init_logger() {
-        if (class_exists('\Monolog\Logger')) {
-            $this->logger = new \Monolog\Logger('codeswholesale-sync');
-            $handler = new \Monolog\Handler\StreamHandler(WP_CONTENT_DIR . '/uploads/cws-logs/api.log', \Monolog\Logger::INFO);
-            $formatter = new \Monolog\Formatter\LineFormatter();
-            $handler->setFormatter($formatter);
-            $this->logger->pushHandler($handler);
-        }
-    }
-    
-    /**
-     * Load settings from database
-     */
-    private function load_settings() {
-        global $wpdb;
+        $this->sdk_available = class_exists('CodesWholesale\CodesWholesale');
         
-        $table_name = $wpdb->prefix . 'cws_settings';
-        $results = $wpdb->get_results("SELECT setting_name, setting_value FROM $table_name WHERE autoload = 'yes'", ARRAY_A);
-        
-        foreach ($results as $setting) {
-            $this->settings[$setting['setting_name']] = $setting['setting_value'];
+        if ($this->sdk_available) {
+            $this->settings = CWS_Settings::get_instance();
+            $this->init_client();
         }
     }
     
@@ -178,148 +88,163 @@ class CWS_API_Client {
      * Initialize CodesWholesale client
      */
     private function init_client() {
-        $client_id = $this->get_setting('cws_client_id');
-        $client_secret = $this->get_setting('cws_client_secret');
-        $environment = $this->get_setting('cws_api_environment', 'sandbox');
-        
-        if (empty($client_id) || empty($client_secret)) {
-            $this->log('API credentials not configured', 'warning');
+        if (!$this->sdk_available) {
             return false;
         }
         
         try {
-            $params = array(
-                'cw.client_id' => $client_id,
-                'cw.client_secret' => $client_secret,
-                'cw.endpoint_uri' => $environment === 'live' 
-                    ? CodesWholesale::LIVE_ENDPOINT 
-                    : CodesWholesale::SANDBOX_ENDPOINT,
-                'cw.token_storage' => new CWS_Database_Token_Storage()
-            );
+            $client_id = $this->settings->get('client_id');
+            $client_secret = $this->settings->get('client_secret');
+            $environment = $this->settings->get('environment', 'live');
             
-            $clientBuilder = new ClientBuilder($params);
-            $this->client = $clientBuilder->build();
+            if (empty($client_id) || empty($client_secret)) {
+                return false;
+            }
             
-            $this->log('API client initialized successfully', 'info');
+            // Use fully qualified class names
+            $builder = new \CodesWholesale\Client\ClientBuilder();
+            $builder->setClientId($client_id)
+                   ->setClientSecret($client_secret)
+                   ->setTokenStorage(new CWS_Database_Token_Storage());
+                   
+            if ($environment === 'sandbox') {
+                $builder->setEnvironment(\CodesWholesale\Client\ClientBuilder::ENVIRONMENT_SANDBOX);
+            }
+            
+            $this->client = $builder->build();
+            
             return true;
             
         } catch (Exception $e) {
-            $this->log('Failed to initialize API client: ' . $e->getMessage(), 'error');
+            error_log('CWS API Client initialization failed: ' . $e->getMessage());
             return false;
         }
     }
     
     /**
-     * Get setting value
+     * Get CodesWholesale client
      */
-    private function get_setting($key, $default = '') {
-        return isset($this->settings[$key]) ? $this->settings[$key] : $default;
+    public function get_client() {
+        if (!$this->sdk_available) {
+            return null;
+        }
+        
+        if (null === $this->client) {
+            $this->init_client();
+        }
+        
+        return $this->client;
     }
     
     /**
-     * Check if client is initialized
+     * Check if API is connected
      */
     public function is_connected() {
-        return $this->client !== null;
+        if (!$this->sdk_available) {
+            return false;
+        }
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return false;
+        }
+        
+        try {
+            $account = $client->getAccount();
+            return $account !== null;
+        } catch (Exception $e) {
+            return false;
+        }
     }
     
     /**
      * Test API connection
      */
     public function test_connection() {
-        if (!$this->is_connected()) {
-            return false;
-        }
-        
-        try {
-            $account = $this->client->getAccount();
-            $this->log('Connection test successful', 'info');
+        if (!$this->sdk_available) {
             return array(
-                'success' => true,
-                'data' => array(
-                    'account_name' => $account->getFullName(),
-                    'email' => $account->getEmail(),
-                    'balance' => $account->getCurrentBalance(),
-                    'credit' => $account->getCurrentCredit()
-                )
-            );
-        } catch (Exception $e) {
-            $this->log('Connection test failed: ' . $e->getMessage(), 'error');
-            return array(
-                'success' => false,
-                'error' => $e->getMessage()
+                'status' => 'error', 
+                'message' => 'CodesWholesale SDK not installed. Please run "composer install".'
             );
         }
-    }
-    
-    /**
-     * Get all products with optional filters
-     */
-    public function get_products($filters = array()) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return array(
+                'status' => 'error',
+                'message' => 'API client not configured. Please check your credentials.'
+            );
         }
         
         try {
-            $products = $this->client->getProducts($filters);
-            $this->log('Retrieved ' . count($products) . ' products', 'info');
-            return $products;
+            $account = $client->getAccount();
+            
+            if ($account) {
+                return array(
+                    'status' => 'success',
+                    'message' => 'Connection successful',
+                    'data' => array(
+                        'email' => $account->getEmail(),
+                        'current_balance' => $account->getCurrentBalance(),
+                        'current_credit' => $account->getCurrentCredit()
+                    )
+                );
+            } else {
+                return array(
+                    'status' => 'error',
+                    'message' => 'Failed to retrieve account information'
+                );
+            }
+            
         } catch (Exception $e) {
-            $this->log('Failed to get products: ' . $e->getMessage(), 'error');
-            throw $e;
+            return array(
+                'status' => 'error',
+                'message' => $e->getMessage()
+            );
         }
     }
     
     /**
-     * Get single product by ID or href
+     * Refresh settings and reinitialize client
      */
-    public function get_product($product_href) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+    public function refresh_settings() {
+        if (!$this->sdk_available) {
+            return;
         }
         
-        try {
-            $product = Product::get($product_href);
-            $this->log('Retrieved product: ' . $product->getName(), 'info');
-            return $product;
-        } catch (Exception $e) {
-            $this->log('Failed to get product: ' . $e->getMessage(), 'error');
-            throw $e;
-        }
-    }
-    
-    /**
-     * Get product description
-     */
-    public function get_product_description($description_href) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
-        }
-        
-        try {
-            $description = ProductDescription::get($description_href);
-            $this->log('Retrieved product description', 'info');
-            return $description;
-        } catch (Exception $e) {
-            $this->log('Failed to get product description: ' . $e->getMessage(), 'error');
-            throw $e;
-        }
+        $this->client = null;
+        $this->init_client();
     }
     
     /**
      * Get platforms
      */
     public function get_platforms() {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+        if (!$this->sdk_available) {
+            return array();
+        }
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return array();
         }
         
         try {
-            $platforms = $this->client->getPlatforms();
-            return $platforms;
+            $platforms = $client->getPlatforms();
+            $result = array();
+            
+            foreach ($platforms as $platform) {
+                $result[] = array(
+                    'id' => $platform->getId(),
+                    'name' => $platform->getName()
+                );
+            }
+            
+            return $result;
+            
         } catch (Exception $e) {
-            $this->log('Failed to get platforms: ' . $e->getMessage(), 'error');
-            throw $e;
+            error_log('Failed to get platforms: ' . $e->getMessage());
+            return array();
         }
     }
     
@@ -327,16 +252,31 @@ class CWS_API_Client {
      * Get regions
      */
     public function get_regions() {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+        if (!$this->sdk_available) {
+            return array();
+        }
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return array();
         }
         
         try {
-            $regions = $this->client->getRegions();
-            return $regions;
+            $regions = $client->getRegions();
+            $result = array();
+            
+            foreach ($regions as $region) {
+                $result[] = array(
+                    'id' => $region->getId(),
+                    'name' => $region->getName()
+                );
+            }
+            
+            return $result;
+            
         } catch (Exception $e) {
-            $this->log('Failed to get regions: ' . $e->getMessage(), 'error');
-            throw $e;
+            error_log('Failed to get regions: ' . $e->getMessage());
+            return array();
         }
     }
     
@@ -344,131 +284,70 @@ class CWS_API_Client {
      * Get languages
      */
     public function get_languages() {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+        if (!$this->sdk_available) {
+            return array();
+        }
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return array();
         }
         
         try {
-            $languages = $this->client->getLanguages();
-            return $languages;
+            $languages = $client->getLanguages();
+            $result = array();
+            
+            foreach ($languages as $language) {
+                $result[] = array(
+                    'id' => $language->getId(),
+                    'name' => $language->getName()
+                );
+            }
+            
+            return $result;
+            
         } catch (Exception $e) {
-            $this->log('Failed to get languages: ' . $e->getMessage(), 'error');
-            throw $e;
+            error_log('Failed to get languages: ' . $e->getMessage());
+            return array();
         }
     }
     
     /**
-     * Create order
+     * Get account balance
      */
-    public function create_order($products) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
+    public function get_account_balance() {
+        if (!$this->sdk_available) {
+            return null;
+        }
+        
+        $client = $this->get_client();
+        if (!$client) {
+            return null;
         }
         
         try {
-            $order = Order::createOrder($products, null);
-            $this->log('Created order: ' . $order->getOrderId(), 'info');
-            return $order;
+            $account = $client->getAccount();
+            
+            if ($account) {
+                return array(
+                    'current_balance' => $account->getCurrentBalance(),
+                    'current_credit' => $account->getCurrentCredit(),
+                    'email' => $account->getEmail()
+                );
+            }
+            
+            return null;
+            
         } catch (Exception $e) {
-            $this->log('Failed to create order: ' . $e->getMessage(), 'error');
-            throw $e;
+            error_log('Failed to get account balance: ' . $e->getMessage());
+            return null;
         }
     }
     
     /**
-     * Get order history
+     * Check if SDK is available
      */
-    public function get_order_history($date_from, $date_to) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
-        }
-        
-        try {
-            $orders = Order::getHistory($date_from, $date_to);
-            return $orders;
-        } catch (Exception $e) {
-            $this->log('Failed to get order history: ' . $e->getMessage(), 'error');
-            throw $e;
-        }
-    }
-    
-    /**
-     * Get account information
-     */
-    public function get_account() {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
-        }
-        
-        try {
-            $account = $this->client->getAccount();
-            return $account;
-        } catch (Exception $e) {
-            $this->log('Failed to get account info: ' . $e->getMessage(), 'error');
-            throw $e;
-        }
-    }
-    
-    /**
-     * Security check for customer
-     */
-    public function security_check($email, $user_agent, $payment_email, $ip_address) {
-        if (!$this->is_connected()) {
-            throw new Exception('API client not connected');
-        }
-        
-        try {
-            $security = Security::check($email, $user_agent, $payment_email, $ip_address);
-            $this->log('Security check completed for: ' . $email, 'info');
-            return $security;
-        } catch (Exception $e) {
-            $this->log('Security check failed: ' . $e->getMessage(), 'error');
-            throw $e;
-        }
-    }
-    
-    /**
-     * Get webhook client for handling postback notifications
-     */
-    public function get_webhook_client() {
-        return $this->client;
-    }
-    
-    /**
-     * Log message
-     */
-    private function log($message, $level = 'info') {
-        if ($this->logger) {
-            $this->logger->$level($message);
-        }
-        
-        // Also log to WordPress debug.log if WP_DEBUG is enabled
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CodesWholesale Sync] ' . $message);
-        }
-    }
-    
-    /**
-     * Update settings cache
-     */
-    public function refresh_settings() {
-        $this->load_settings();
-        
-        // Reinitialize client if credentials changed
-        $this->init_client();
-    }
-    
-    /**
-     * Get current environment
-     */
-    public function get_environment() {
-        return $this->get_setting('cws_api_environment', 'sandbox');
-    }
-    
-    /**
-     * Check if using sandbox
-     */
-    public function is_sandbox() {
-        return $this->get_environment() === 'sandbox';
+    public function is_sdk_available() {
+        return $this->sdk_available;
     }
 } 

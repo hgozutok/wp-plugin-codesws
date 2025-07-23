@@ -14,11 +14,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use CodesWholesale\Resource\Order;
-use CodesWholesale\Resource\OrderRequest;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
-
 class CWS_Order_Manager {
     
     /**
@@ -27,7 +22,7 @@ class CWS_Order_Manager {
     private static $instance = null;
     
     /**
-     * API Client instance
+     * API client instance
      */
     private $api_client;
     
@@ -39,7 +34,12 @@ class CWS_Order_Manager {
     /**
      * Logger instance
      */
-    private $logger;
+    private $logger = null;
+    
+    /**
+     * Whether dependencies are available
+     */
+    private $dependencies_available = false;
     
     /**
      * Order statuses mapping
@@ -52,7 +52,7 @@ class CWS_Order_Manager {
     );
     
     /**
-     * Get single instance
+     * Get singleton instance
      */
     public static function get_instance() {
         if (null === self::$instance) {
@@ -67,6 +67,7 @@ class CWS_Order_Manager {
     public function __construct() {
         $this->api_client = CWS_API_Client::get_instance();
         $this->settings = CWS_Settings::get_instance();
+        $this->dependencies_available = class_exists('Monolog\Logger') && class_exists('CodesWholesale\CodesWholesale');
         $this->init_logger();
         
         // Initialize hooks when WooCommerce is loaded
@@ -82,10 +83,17 @@ class CWS_Order_Manager {
      * Initialize logger
      */
     private function init_logger() {
-        $this->logger = new Logger('cws_orders');
-        $log_path = wp_upload_dir()['basedir'] . '/cws-logs/orders.log';
-        wp_mkdir_p(dirname($log_path));
-        $this->logger->pushHandler(new StreamHandler($log_path, Logger::INFO));
+        if ($this->dependencies_available && class_exists('Monolog\Logger')) {
+            try {
+                $this->logger = new \Monolog\Logger('cws_orders');
+                $log_path = wp_upload_dir()['basedir'] . '/cws-logs/orders.log';
+                wp_mkdir_p(dirname($log_path));
+                $this->logger->pushHandler(new \Monolog\Handler\StreamHandler($log_path, \Monolog\Logger::INFO));
+            } catch (Exception $e) {
+                // Fallback to WordPress logging
+                $this->logger = null;
+            }
+        }
     }
     
     /**
@@ -121,6 +129,12 @@ class CWS_Order_Manager {
      * Process WooCommerce order
      */
     public function process_order($order_id) {
+        // Check if dependencies are available
+        if (!$this->dependencies_available) {
+            $this->log("Cannot process order - CodesWholesale SDK not installed", 'warning', 'process_order', null, $order_id);
+            return;
+        }
+        
         try {
             $order = wc_get_order($order_id);
             if (!$order) {
@@ -779,6 +793,14 @@ class CWS_Order_Manager {
             wp_die(__('Permission denied', 'codeswholesale-sync'));
         }
         
+        // Check if dependencies are available
+        if (!$this->dependencies_available) {
+            wp_send_json_error(array(
+                'message' => __('Cannot cancel order - CodesWholesale SDK not installed', 'codeswholesale-sync')
+            ));
+            return;
+        }
+        
         $order_id = intval($_POST['order_id']);
         
         try {
@@ -836,35 +858,42 @@ class CWS_Order_Manager {
      * Log message
      */
     private function log($message, $level = 'info', $operation_type = 'order', $product_id = null, $wc_order_id = null) {
-        // Log to file
+        // Log to file if Monolog is available
         if ($this->logger) {
-            $this->logger->log($level, $message, array(
-                'operation' => $operation_type,
-                'product_id' => $product_id,
-                'wc_order_id' => $wc_order_id
-            ));
+            try {
+                $this->logger->log($level, $message, array(
+                    'operation' => $operation_type,
+                    'product_id' => $product_id,
+                    'wc_order_id' => $wc_order_id
+                ));
+            } catch (Exception $e) {
+                // Monolog failed, continue to database logging
+            }
         }
         
-        // Log to database
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'cws_sync_log';
-        
-        $wpdb->insert(
-            $table_name,
-            array(
-                'operation_type' => $operation_type,
-                'message' => $message,
-                'level' => $level,
-                'product_id' => $product_id,
-                'wc_product_id' => $wc_order_id,
-                'created_at' => current_time('mysql')
-            ),
-            array('%s', '%s', '%s', '%s', '%d', '%s')
-        );
-        
-        // Log to WordPress debug if enabled
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log("CWS Orders [{$level}]: {$message}");
+        // Log to database as fallback
+        try {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'cws_sync_log';
+            
+            // Check if table exists
+            if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
+                $wpdb->insert(
+                    $table_name,
+                    array(
+                        'operation_type' => $operation_type,
+                        'message' => $message,
+                        'level' => $level,
+                        'product_id' => $product_id,
+                        'wc_product_id' => $wc_order_id,
+                        'created_at' => current_time('mysql')
+                    ),
+                    array('%s', '%s', '%s', '%s', '%d', '%s')
+                );
+            }
+        } catch (Exception $e) {
+            // Even database logging failed, fall back to WordPress error log
+            error_log("CWS Order Manager: [$level] $message");
         }
     }
 } 

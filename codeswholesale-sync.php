@@ -10,11 +10,13 @@
  * Tested up to: 6.4
  * Requires PHP: 7.4
  * WC requires at least: 4.0
- * WC tested up to: 8.4
+ * WC tested up to: 8.5
+ * Requires Plugins: woocommerce
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: codeswholesale-sync
  * Domain Path: /languages
+ * Network: false
  *
  * @package CodesWholesaleSync
  */
@@ -63,9 +65,10 @@ final class CodesWholesaleSync {
      * Constructor
      */
     private function __construct() {
-        $this->init_hooks();
         $this->includes();
         $this->init_classes();
+        $this->declare_woocommerce_compatibility();
+        $this->init_hooks();
     }
     
     /**
@@ -112,6 +115,7 @@ final class CodesWholesaleSync {
             CWS_Settings::get_instance();
         }
         
+        // Initialize core classes
         CWS_API_Client::get_instance();
         CWS_Product_Sync::get_instance();
         CWS_Price_Updater::get_instance();
@@ -119,6 +123,29 @@ final class CodesWholesaleSync {
         CWS_Webhook_Handler::get_instance();
         CWS_Scheduler::get_instance();
         CWS_Order_Manager::get_instance();
+    }
+    
+    /**
+     * Declare WooCommerce compatibility
+     */
+    private function declare_woocommerce_compatibility() {
+        // Declare HPOS compatibility
+        add_action('before_woocommerce_init', function() {
+            if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+                \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+                \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('orders_cache', __FILE__, true);
+            }
+        });
+        
+        // Declare general WooCommerce compatibility
+        add_action('init', function() {
+            if (function_exists('wc_get_container')) {
+                // Plugin is compatible with WooCommerce
+                add_filter('woocommerce_admin_features', function($features) {
+                    return $features;
+                });
+            }
+        });
     }
     
     /**

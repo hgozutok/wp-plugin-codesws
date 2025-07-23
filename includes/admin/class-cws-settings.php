@@ -43,7 +43,6 @@ class CWS_Settings {
     public function __construct() {
         $this->load_settings();
         add_action('wp_ajax_cws_save_settings', array($this, 'ajax_save_settings'));
-        add_action('wp_ajax_cws_test_connection', array($this, 'ajax_test_connection'));
     }
     
     /**
@@ -385,25 +384,7 @@ class CWS_Settings {
         ));
     }
     
-    /**
-     * AJAX handler for testing API connection
-     */
-    public function ajax_test_connection() {
-        check_ajax_referer('cws_admin_nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_die(__('Insufficient permissions', 'codeswholesale-sync'));
-        }
-        
-        $api_client = CWS_API_Client::get_instance();
-        $result = $api_client->test_connection();
-        
-        if ($result['success']) {
-            wp_send_json_success($result['data']);
-        } else {
-            wp_send_json_error($result['error']);
-        }
-    }
+
     
     /**
      * Sanitize setting value

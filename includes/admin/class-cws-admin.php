@@ -47,6 +47,16 @@ class CWS_Admin {
         add_action('wp_ajax_cws_clear_logs', array($this, 'ajax_clear_logs'));
         add_action('wp_ajax_cws_process_pending_orders', array($this, 'ajax_process_pending_orders'));
         add_action('wp_ajax_cws_resend_keys', array($this, 'ajax_resend_keys'));
+        add_action('wp_ajax_cws_test_connection', array($this, 'ajax_test_connection'));
+        add_action('wp_ajax_cws_start_import', array($this, 'ajax_start_import'));
+        add_action('wp_ajax_cws_sync_products', array($this, 'ajax_sync_products'));
+        add_action('wp_ajax_cws_update_prices', array($this, 'ajax_update_prices'));
+        add_action('wp_ajax_cws_update_stock', array($this, 'ajax_update_stock'));
+        add_action('wp_ajax_cws_get_import_progress', array($this, 'ajax_get_import_progress'));
+        add_action('wp_ajax_cws_save_settings', array($this, 'ajax_save_settings'));
+        add_action('wp_ajax_cws_retry_order', array($this, 'ajax_retry_order'));
+        add_action('wp_ajax_cws_cancel_order', array($this, 'ajax_cancel_order'));
+        add_action('wp_ajax_cws_get_order_details', array($this, 'ajax_get_order_details'));
     }
     
     /**
@@ -374,6 +384,63 @@ class CWS_Admin {
     }
     
     /**
+     * Render a setting field
+     */
+    public function render_setting_field($field_key, $field) {
+        $settings = CWS_Settings::get_instance();
+        $value = $settings->get($field_key);
+        $field_id = 'cws_setting_' . $field_key;
+        $field_name = 'cws_settings[' . $field_key . ']';
+        
+        echo '<tr>';
+        echo '<th scope="row"><label for="' . esc_attr($field_id) . '">' . esc_html($field['title']) . '</label></th>';
+        echo '<td>';
+        
+        switch ($field['type']) {
+            case 'text':
+                echo '<input type="text" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" value="' . esc_attr($value) . '" class="regular-text" />';
+                break;
+                
+            case 'password':
+                echo '<input type="password" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" value="' . esc_attr($value) . '" class="regular-text" />';
+                break;
+                
+            case 'number':
+                $min = isset($field['min']) ? 'min="' . esc_attr($field['min']) . '"' : '';
+                $max = isset($field['max']) ? 'max="' . esc_attr($field['max']) . '"' : '';
+                $step = isset($field['step']) ? 'step="' . esc_attr($field['step']) . '"' : '';
+                echo '<input type="number" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" value="' . esc_attr($value) . '" class="small-text" ' . $min . ' ' . $max . ' ' . $step . ' />';
+                break;
+                
+            case 'select':
+                echo '<select id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '">';
+                foreach ($field['options'] as $option_value => $option_label) {
+                    echo '<option value="' . esc_attr($option_value) . '"' . selected($value, $option_value, false) . '>' . esc_html($option_label) . '</option>';
+                }
+                echo '</select>';
+                break;
+                
+            case 'checkbox':
+                echo '<label for="' . esc_attr($field_id) . '">';
+                echo '<input type="checkbox" id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" value="1"' . checked($value, 1, false) . ' />';
+                echo ' ' . esc_html($field['description']);
+                echo '</label>';
+                break;
+                
+            case 'textarea':
+                echo '<textarea id="' . esc_attr($field_id) . '" name="' . esc_attr($field_name) . '" rows="5" cols="50" class="large-text">' . esc_textarea($value) . '</textarea>';
+                break;
+        }
+        
+        if (isset($field['description']) && $field['type'] !== 'checkbox') {
+            echo '<p class="description">' . esc_html($field['description']) . '</p>';
+        }
+        
+        echo '</td>';
+        echo '</tr>';
+    }
+    
+    /**
      * Get recent logs
      */
     private function get_recent_logs($limit = 10) {
@@ -533,6 +600,188 @@ class CWS_Admin {
                 'message' => __('Failed to resend keys: ', 'codeswholesale-sync') . $e->getMessage()
             ));
         }
+    }
+    
+    /**
+     * AJAX: Test API connection
+     */
+    public function ajax_test_connection() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        $api_client = CWS_API_Client::get_instance();
+        $result = $api_client->test_connection();
+        
+        if ($result['status'] === 'success') {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
+    }
+    
+    /**
+     * AJAX: Save settings
+     */
+    public function ajax_save_settings() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        if (!isset($_POST['settings']) || !is_array($_POST['settings'])) {
+            wp_send_json_error(array('message' => __('Invalid settings data', 'codeswholesale-sync')));
+            return;
+        }
+        
+        $settings = CWS_Settings::get_instance();
+        $posted_settings = $_POST['settings'];
+        
+        // Sanitize and save each setting
+        foreach ($posted_settings as $key => $value) {
+            // Basic sanitization based on setting type
+            if (is_string($value)) {
+                $value = sanitize_text_field($value);
+            } elseif (is_numeric($value)) {
+                $value = floatval($value);
+            } elseif (is_bool($value)) {
+                $value = (bool) $value;
+            }
+            
+            $settings->update_setting($key, $value);
+        }
+        
+        // Refresh API client with new settings
+        $api_client = CWS_API_Client::get_instance();
+        $api_client->refresh_settings();
+        
+        wp_send_json_success(array(
+            'message' => __('Settings saved successfully', 'codeswholesale-sync')
+        ));
+    }
+    
+    /**
+     * AJAX: Retry order processing
+     */
+    public function ajax_retry_order() {
+        $order_manager = CWS_Order_Manager::get_instance();
+        $order_manager->ajax_retry_order();
+    }
+    
+    /**
+     * AJAX: Cancel CodesWholesale order
+     */
+    public function ajax_cancel_order() {
+        $order_manager = CWS_Order_Manager::get_instance();
+        $order_manager->ajax_cancel_order();
+    }
+    
+    /**
+     * AJAX: Get order details
+     */
+    public function ajax_get_order_details() {
+        $order_manager = CWS_Order_Manager::get_instance();
+        $order_manager->ajax_get_order_details();
+    }
+    
+    /**
+     * AJAX: Start product import
+     */
+    public function ajax_start_import() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        // Schedule import job
+        wp_schedule_single_event(time(), 'cws_import_products');
+        
+        wp_send_json_success(array(
+            'message' => __('Product import started successfully', 'codeswholesale-sync')
+        ));
+    }
+    
+    /**
+     * AJAX: Sync products
+     */
+    public function ajax_sync_products() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        // Schedule sync job
+        wp_schedule_single_event(time(), 'cws_sync_products');
+        
+        wp_send_json_success(array(
+            'message' => __('Product sync started successfully', 'codeswholesale-sync')
+        ));
+    }
+    
+    /**
+     * AJAX: Update prices
+     */
+    public function ajax_update_prices() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        // Schedule price update job
+        wp_schedule_single_event(time(), 'cws_update_prices');
+        
+        wp_send_json_success(array(
+            'message' => __('Price update started successfully', 'codeswholesale-sync')
+        ));
+    }
+    
+    /**
+     * AJAX: Update stock
+     */
+    public function ajax_update_stock() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        // Schedule stock update job
+        wp_schedule_single_event(time(), 'cws_update_stock');
+        
+        wp_send_json_success(array(
+            'message' => __('Stock update started successfully', 'codeswholesale-sync')
+        ));
+    }
+    
+    /**
+     * AJAX: Get import progress
+     */
+    public function ajax_get_import_progress() {
+        check_ajax_referer('cws_admin_nonce', 'nonce');
+        
+        if (!current_user_can('manage_woocommerce')) {
+            wp_die(__('Permission denied', 'codeswholesale-sync'));
+        }
+        
+        // Get progress from transient or option
+        $progress = get_transient('cws_import_progress');
+        if (!$progress) {
+            $progress = array(
+                'status' => 'idle',
+                'progress' => 0,
+                'total' => 0,
+                'current' => 0,
+                'message' => __('No import in progress', 'codeswholesale-sync')
+            );
+        }
+        
+        wp_send_json_success($progress);
     }
     
     /**

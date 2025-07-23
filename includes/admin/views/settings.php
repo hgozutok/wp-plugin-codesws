@@ -192,17 +192,19 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
+                    var data = response.data.data || response.data;
                     $result.removeClass('cws-connection-error')
                            .addClass('cws-connection-success')
                            .html('<strong><?php _e('Connection successful!', 'codeswholesale-sync'); ?></strong><br>' +
-                                 '<?php _e('Account:', 'codeswholesale-sync'); ?> ' + response.data.account_name + '<br>' +
-                                 '<?php _e('Balance:', 'codeswholesale-sync'); ?> ' + response.data.balance + '<br>' +
-                                 '<?php _e('Credit:', 'codeswholesale-sync'); ?> ' + response.data.credit)
+                                 '<?php _e('Account:', 'codeswholesale-sync'); ?> ' + data.email + '<br>' +
+                                 '<?php _e('Balance:', 'codeswholesale-sync'); ?> ' + data.current_balance + '<br>' +
+                                 '<?php _e('Credit:', 'codeswholesale-sync'); ?> ' + data.current_credit)
                            .show();
                 } else {
+                    var errorMessage = response.data && response.data.message ? response.data.message : 'Unknown error occurred';
                     $result.removeClass('cws-connection-success')
                            .addClass('cws-connection-error')
-                           .html('<strong><?php _e('Connection failed:', 'codeswholesale-sync'); ?></strong><br>' + response.data)
+                           .html('<strong><?php _e('Connection failed:', 'codeswholesale-sync'); ?></strong><br>' + errorMessage)
                            .show();
                 }
             },
