@@ -1,8 +1,12 @@
 <?php
 /**
  * CodesWholesale API Client
- *
+ * 
+ * Handles API communication with CodesWholesale using the official PHP SDK.
+ * Includes OAuth2 authentication, token management, and error handling.
+ * 
  * @package CodesWholesaleSync
+ * @since 1.0.0
  */
 
 // Prevent direct access
@@ -10,13 +14,67 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-use CodesWholesale\ClientBuilder;
+// Check if CodesWholesale SDK is available
+if (!class_exists('CodesWholesale\CodesWholesale')) {
+    // Provide a stub class if SDK is not available
+    class CWS_API_Client {
+        private static $instance = null;
+        
+        public static function get_instance() {
+            if (null === self::$instance) {
+                self::$instance = new self();
+            }
+            return self::$instance;
+        }
+        
+        public function __construct() {
+            // SDK not available
+        }
+        
+        public function get_client() {
+            return null;
+        }
+        
+        public function is_connected() {
+            return false;
+        }
+        
+        public function test_connection() {
+            return array('status' => 'error', 'message' => 'CodesWholesale SDK not installed. Please run "composer install".');
+        }
+        
+        public function refresh_settings() {
+            // No-op
+        }
+        
+        public function get_platforms() {
+            return array();
+        }
+        
+        public function get_regions() {
+            return array();
+        }
+        
+        public function get_languages() {
+            return array();
+        }
+        
+        public function get_account_balance() {
+            return null;
+        }
+    }
+    return;
+}
+
+// Import CodesWholesale classes (only if SDK is available)
 use CodesWholesale\CodesWholesale;
-use CodesWholesale\Storage\TokenSessionStorage;
+use CodesWholesale\Client\ClientBuilder;
 use CodesWholesale\Storage\TokenStorageInterface;
+use CodesWholesale\Resource\Account;
 use CodesWholesale\Resource\Product;
-use CodesWholesale\Resource\ProductDescription;
-use CodesWholesale\Resource\Order;
+use CodesWholesale\Resource\Platform;
+use CodesWholesale\Resource\Region;
+use CodesWholesale\Resource\Language;
 use CodesWholesale\Resource\Invoice;
 use CodesWholesale\Resource\Security;
 use CodesWholesale\Util\Base64Writer;

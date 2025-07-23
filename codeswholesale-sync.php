@@ -31,11 +31,7 @@ define('CWS_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('CWS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CWS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 
-// Check if WooCommerce is active
-if (!in_array('woocommerce/woocommerce.php', apply_filters('active_plugins', get_option('active_plugins')))) {
-    add_action('admin_notices', 'cws_woocommerce_missing_notice');
-    return;
-}
+// WooCommerce dependency check will be done in admin_init hook
 
 // Include the Composer autoloader
 if (file_exists(CWS_PLUGIN_PATH . 'vendor/autoload.php')) {
@@ -288,11 +284,22 @@ final class CodesWholesaleSync {
 }
 
 /**
- * Show notice if WooCommerce is not active
+ * Check if WooCommerce is active
+ */
+function cws_check_woocommerce_dependency() {
+    if (!class_exists('WooCommerce')) {
+        add_action('admin_notices', 'cws_woocommerce_missing_notice');
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Display WooCommerce missing notice
  */
 function cws_woocommerce_missing_notice() {
     ?>
-    <div class="error">
+    <div class="notice notice-error">
         <p><?php _e('CodesWholesale Sync requires WooCommerce to be installed and active.', 'codeswholesale-sync'); ?></p>
     </div>
     <?php
@@ -302,8 +309,14 @@ function cws_woocommerce_missing_notice() {
  * Initialize the plugin
  */
 function cws_init() {
+    // Check WooCommerce dependency
+    if (!cws_check_woocommerce_dependency()) {
+        return;
+    }
+    
+    // Initialize the plugin
     return CodesWholesaleSync::get_instance();
 }
 
-// Initialize the plugin
-cws_init(); 
+// Initialize the plugin after all plugins are loaded
+add_action('plugins_loaded', 'cws_init'); 

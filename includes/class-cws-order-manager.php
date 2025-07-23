@@ -68,7 +68,14 @@ class CWS_Order_Manager {
         $this->api_client = CWS_API_Client::get_instance();
         $this->settings = CWS_Settings::get_instance();
         $this->init_logger();
-        $this->init_hooks();
+        
+        // Initialize hooks when WooCommerce is loaded
+        add_action('woocommerce_loaded', array($this, 'init_hooks'));
+        
+        // If WooCommerce is already loaded, init hooks immediately
+        if (class_exists('WooCommerce')) {
+            $this->init_hooks();
+        }
     }
     
     /**
@@ -84,7 +91,7 @@ class CWS_Order_Manager {
     /**
      * Initialize WooCommerce hooks
      */
-    private function init_hooks() {
+    public function init_hooks() {
         // Order processing hooks
         add_action('woocommerce_order_status_processing', array($this, 'process_order'), 10, 1);
         add_action('woocommerce_order_status_on-hold', array($this, 'process_order'), 10, 1);
